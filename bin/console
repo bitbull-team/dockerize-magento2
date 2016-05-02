@@ -138,6 +138,38 @@ executeInDocker() {
 }
 
 #######################################
+# Import given sql dump inside the mysql docker
+# container
+# Globals:
+#   DATABASE_NAME
+#   DATABASE_ROOT_PASSWORD
+# Arguments:
+#   sql_dump_filename
+# Returns:
+#   None
+#######################################
+importDatabase() {
+
+  # abort if no dump filename was specified
+  sql_dump_filename=$1
+  if [ -z "$sql_dump_filename" ]; then
+    echo >&2 "No dump filename given"
+    return 1
+  fi
+
+  if [ $(isRunning) = false ]; then
+    echo >&2 "Docker is not running. Please start the containers first.";
+    exit 1;
+  fi
+
+  # get the container name of the Mysql container
+  mysqlContainerName=$(docker-compose ps -q | xargs docker inspect --format='{{ .Name }}' | sed 's:^/::g' | grep "mysql_")
+
+  # call mysql client inside Mysql container
+  docker exec -i $mysqlContainerName mysql -uroot -p$DATABASE_ROOT_PASSWORD $DATABASE_NAME < $sql_dump_filename
+}
+
+#######################################
 # Generate new SSL certificates
 # Globals:
 #   SSLKEYFILEPATH
@@ -400,6 +432,16 @@ case "$1" in
     exec)
     shift 1
     executeInDocker $*
+    ;;
+
+    importdb)
+    shift 1
+    importDatabase $*
+    ;;
+
+    cert)
+    shift 1
+    generateSSLCertificate $*
     ;;
 
     start)
